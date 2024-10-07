@@ -5,12 +5,22 @@
 
 import Foundation
 
-public final class Resolver: ResolverProtocol {
+public final class Resolver: ResolverProtocol, @unchecked Sendable {
 
-    // MARK: - Properties
+    // MARK: - Public Properties
 
     public static let shared: some ResolverProtocol = Resolver()
-    private var creators: [Key: Container] = [:]
+
+    // MARK: - Private Properties
+
+    private let queue = DispatchQueue(label: "Resolver.queue")
+
+    private var _creators: [Key: Container] = [:]
+
+    private var creators: [Key: Container] {
+        get { queue.sync { self._creators }}
+        set { queue.async { self._creators = newValue }}
+    }
 
     // Private Methods
 
@@ -43,7 +53,7 @@ public final class Resolver: ResolverProtocol {
 
     public func register<Service>(
         _ serviceType: Service.Type,
-        creator: @escaping () -> AnyObject
+        creator: @Sendable @escaping () -> AnyObject
     ) throws {
         try checkProtocol(serviceType)
         try checkNotExists(serviceType)
@@ -109,7 +119,7 @@ private extension Resolver {
 
     // MARK: - Data Types
 
-    struct Key: Hashable {
+    struct Key: Hashable, Sendable {
         let serviceType: Any.Type
 
         func hash(into hasher: inout Hasher) {
@@ -121,7 +131,7 @@ private extension Resolver {
         }
     }
 
-    struct Container {
+    struct Container: Sendable {
         let creator: Creator
     }
 }

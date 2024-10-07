@@ -5,11 +5,11 @@
 
 import Foundation
 
-public protocol ResolverProtocol {
+public protocol ResolverProtocol: Sendable {
 
     // MARK: - Definitions
 
-    typealias Creator = () -> AnyObject
+    typealias Creator = @Sendable () -> AnyObject
 
     // MARK: - Registration
 

@@ -6,44 +6,38 @@
 import Foundation
 
 @propertyWrapper
-public final class Inject<Value> {
+public struct Inject<Value> {
 
     // MARK: - Public Properties
 
-    public var wrappedValue: Value? {
-        get { getValue() }
-        set { _wrappedValue = newValue }
+    public var wrappedValue: Value {
+        get {
+            guard let value = injector.wrappedValue else {
+                preconditionFailure("Cannot resolve an object of type `\(Value.self)`. Have you registered it?")
+            }
+            return value
+        }
+
+        set {
+            injector.wrappedValue = newValue
+        }
     }
 
-    public var projectedValue: Inject<Value> {
-        self
+    public var projectedValue: SafeInject<Value> {
+        injector.projectedValue
     }
 
     // MARK: - Private Properties
 
-    private let resolver: ResolverProtocol
-    private var _wrappedValue: Value?
+    private var injector: SafeInject<Value>
 
     // MARK: - Initialization
 
-    public required init(
-        wrappedValue: Value? = nil,
-        resolver: ResolverProtocol = Resolver.shared
-    ) {
-        self._wrappedValue = wrappedValue
-        self.resolver = resolver
+    public init(wrappedValue: Value) {
+        injector = SafeInject(wrappedValue: wrappedValue)
     }
 
-    // MARK: - Private Methods
-
-    private func getValue() -> Value? {
-        if let value = _wrappedValue {
-            return value
-        } else if let value = try? resolver.resolve(Value.self) {
-            _wrappedValue = value
-            return value
-        } else {
-            return nil
-        }
+    public init(wrappedValue: Value? = nil) {
+        injector = SafeInject(wrappedValue: wrappedValue)
     }
 }
