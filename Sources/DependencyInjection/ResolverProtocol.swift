@@ -17,11 +17,11 @@ public protocol ResolverProtocol: Sendable {
     /// - Parameters:
     ///   - serviceType: Ths service type (protocol) to be used for resolving an object.
     ///   - creator: The `Creator` closure that's used to create the object and return it
-    ///              as the result of `resolve(_:) throws` or ` resolve(_:completion:)`.
+    ///              as the result of `resolve(_:)` or `resolve(_:completion:)`.
     func register<Service>(
         _ serviceType: Service.Type,
         creator: @escaping Creator
-    ) throws
+    ) throws(ResolverError)
 
     /// Unregisters the creator associated with the specified service type.
     /// - Parameter serviceType: The service type (protocol) to be unregistered.
@@ -30,13 +30,13 @@ public protocol ResolverProtocol: Sendable {
     @discardableResult
     func unregister<Service>(
         _ serviceType: Service.Type
-    ) throws -> Creator?
+    ) throws(ResolverError) -> Creator?
 
-    /// Clears the registration list. Throws `Error.notRegistered` if no registrations are found.
+    /// Clears the registration list.
     /// - Returns: The list of `Creator`s removed.
     /// - Throws: An error of type `ResolverError`.
     @discardableResult
-    func unregisterAll() throws -> [Creator]
+    func unregisterAll() throws(ResolverError) -> [Creator]
 
     // MARK: - Resolution
 
@@ -47,10 +47,10 @@ public protocol ResolverProtocol: Sendable {
     /// - Throws: An error of type `ResolverError`.
     func resolve<Service>(
         _ serviceType: Service.Type
-    ) throws -> Service
+    ) throws(ResolverError) -> Service
 
     /// Resolves a `Creator` from the specified service type (protocol) and calls
-    /// the `completion(_:)` handler with its result, if found, or the associated `Error`.
+    /// the `completion(_:)` handler with its result, if found, or the associated `ResolverError`.
     /// - Parameters:
     ///   - serviceType: The service type (protocol) from which the `Creator` will be resolved.
     ///   - completion: The completion handler to be called if the resolving is successful, passing a

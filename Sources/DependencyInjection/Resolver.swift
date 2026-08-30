@@ -11,39 +11,39 @@ public final class Resolver: ResolverProtocol, @unchecked Sendable {
 
     public static let shared: some ResolverProtocol = Resolver()
 
-    // MARK: - Private Properties
+    // MARK: - Internal Properties
 
-    private let queue = DispatchQueue(label: "Resolver.queue")
+    let queue = DispatchQueue(label: "Resolver.queue")
 
-    private var _creators: [Key: Container] = [:]
+    var _creators: [Key: Container] = [:]
 
-    private var creators: [Key: Container] {
+    var creators: [Key: Container] {
         get { queue.sync { self._creators }}
-        set { queue.async { self._creators = newValue }}
+        set { queue.async(flags: .barrier) { self._creators = newValue }}
     }
 
     // Private Methods
 
-    private func findKey<Service>(for serviceType: Service.Type) throws -> Key {
+    private func findKey<Service>(for serviceType: Service.Type) throws(ResolverError) -> Key {
         try checkProtocol(serviceType)
         guard let key = creators.keys.first(where: { $0.serviceType == serviceType }) else {
-            throw ResolverError.notFound
+            throw .notFound
         }
         return key
     }
 
-    private func checkProtocol<Service>(_ serviceType: Service.Type) throws {
+    private func checkProtocol<Service>(_ serviceType: Service.Type) throws(ResolverError) {
         guard !(serviceType is AnyClass) else {
-            throw ResolverError.notAProtocol
+            throw .notAProtocol
         }
     }
 
-    private func checkNotExists<Service>(_ serviceType: Service.Type) throws {
+    private func checkNotExists<Service>(_ serviceType: Service.Type) throws(ResolverError) {
         let keyValuePair = creators.first { key, _ in
             key.serviceType == serviceType
         }
         guard keyValuePair == nil else {
-            throw ResolverError.alreadyRegistered
+            throw .alreadyRegistered
         }
     }
 
@@ -54,7 +54,7 @@ public final class Resolver: ResolverProtocol, @unchecked Sendable {
     public func register<Service>(
         _ serviceType: Service.Type,
         creator: @Sendable @escaping () -> AnyObject
-    ) throws {
+    ) throws(ResolverError) {
         try checkProtocol(serviceType)
         try checkNotExists(serviceType)
         let key = Key(serviceType: serviceType)
@@ -65,16 +65,16 @@ public final class Resolver: ResolverProtocol, @unchecked Sendable {
     @discardableResult
     public func unregister<Service>(
         _ serviceType: Service.Type
-    ) throws -> Creator? {
+    ) throws(ResolverError) -> Creator? {
         try checkProtocol(serviceType)
         let key = try findKey(for: serviceType)
         return creators.removeValue(forKey: key)?.creator
     }
 
     @discardableResult
-    public func unregisterAll() throws -> [Creator] {
+    public func unregisterAll() throws(ResolverError) -> [Creator] {
         guard !creators.isEmpty else {
-            throw ResolverError.notFound
+            throw .notFound
         }
         let currentCreators = creators
         return currentCreators.compactMap { key, _ in
@@ -86,7 +86,7 @@ public final class Resolver: ResolverProtocol, @unchecked Sendable {
 
     public func resolve<Service>(
         _ serviceType: Service.Type
-    ) throws -> Service {
+    ) throws(ResolverError) -> Service {
         try checkProtocol(serviceType)
         let key = try findKey(for: serviceType)
 
@@ -94,7 +94,7 @@ public final class Resolver: ResolverProtocol, @unchecked Sendable {
             let creator = creators[key]?.creator,
             let service = creator() as? Service
         else {
-            throw ResolverError.invalidType
+            throw .invalidType
         }
 
         return service
@@ -107,15 +107,13 @@ public final class Resolver: ResolverProtocol, @unchecked Sendable {
         do {
             let service = try resolve(serviceType)
             completion(.success(service))
-        } catch let error as ResolverError {
-            completion(.failure(error))
         } catch {
-            completion(.failure(.unknown(error: error)))
+            completion(.failure(error))
         }
     }
 }
 
-private extension Resolver {
+internal extension Resolver {
 
     // MARK: - Data Types
 
